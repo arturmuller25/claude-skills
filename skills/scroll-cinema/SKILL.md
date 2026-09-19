@@ -1,59 +1,81 @@
 ---
 name: scroll-cinema
-description: Build a scroll-scrubbed cinematic / "fly through the world" landing hero, free by default. Combines Lenis smooth-scroll and GSAP ScrollTrigger as the engine, with a pluggable visual layer (SVG/CSS diorama, Three.js/Spline 3D, Rive, or pre-rendered video). Use when the user wants a scroll cinematic, a 3D-world or diorama landing hero, a "browse-through-the-industry" section, or a scroll-driven storytelling page. Optimized for Next.js/React, mobile-safe, and needs no paid render unless the video layer is chosen.
+description: Universal scroll-driven cinematic hero — one entry point that routes to the best technique for the job and budget. Free by default (Lenis + GSAP engine with SVG/CSS diorama, Three.js/Spline 3D, or Rive layers); for AI-generated photoreal "fly-through-the-world" video it DELEGATES to the scroll-world skill (Higgsfield/Monid pipeline) instead of reimplementing it. Use when the user wants a scroll cinematic, a 3D-world or diorama landing hero, a "browse-through-the-industry" section, or a scroll-driven storytelling page. Optimized for Next.js/React, mobile-safe.
 ---
 
-# Scroll Cinema
+# Scroll Cinema (universal)
 
-Build a scroll-scrubbed cinematic hero: as the visitor scrolls, a camera/timeline
-flies through connected scenes with no cuts. One engine drives the scroll; the
-*visual layer* is swappable. Free by default (SVG/CSS + code); paid video only if
-the user explicitly wants photoreal.
+One skill, four visual lanes. The scroll mechanic is always the same — scroll drives
+a timeline/camera, no cuts — but the *renderer* is chosen by fidelity and budget. This
+skill picks the lane, wires the engine, and for the paid photoreal lane hands off to
+the specialist skill rather than duplicating it.
 
-This skill exists because "scroll-world"-style tools render the flythrough as
-**paid per-clip video** (Higgsfield/Monid). That looks great but costs money, ships
-heavy MB, and is not editable after render. Here the default is a code-driven
-timeline that is free, light, editable, and SEO-friendly, with the paid video kept
-as one optional layer.
+Design principle: **take the best of each technique, reimplement none.** The free lanes
+share one code engine; the photoreal-video lane is the `scroll-world` skill's job.
 
-## Procedure
+## Step 1 — Interview
 
-1. **Interview.** Ask the user for: topic/brand, the scene beats (3 to 6 sections,
-   each with a headline + role in the story), brand kit (colors, font, logo), and
-   the vibe (isometric diorama, product flythrough, editorial). Do not generate
-   until beats are named.
-2. **Pick the visual layer** by budget and fidelity. Default to **SVG/CSS diorama**
-   (free, light). Escalate only if the user needs it: **Three.js** for real 3D,
-   **Rive** for an interactive character, **video** for photoreal (paid). See
-   `references/visual-layers.md`.
-3. **Wire the engine.** Use `assets/scroll-engine.js` (Lenis + GSAP ScrollTrigger).
-   It pins the stage, builds one scrubbed timeline across the beats, and emits a
-   `progress` (0..1) per scene that the visual layer reads. Framework-agnostic core.
-4. **Integrate for the target framework.** For Next.js/React use the hook in
-   `references/react-nextjs.md` (client component, dynamic import, cleanup, SSR-safe).
-5. **Performance and accessibility pass (non-negotiable).**
-   - Honor `prefers-reduced-motion`: skip smooth-scroll and scrubbing, show scenes
-     statically.
-   - Lazy-load heavy layers (Three/Spline/video) below the fold; never block first paint.
-   - Every scene's headline is real DOM text (SEO + screen readers), never baked into
-     an image/video only.
-   - Cap devicePixelRatio for 3D; pause the loop when the stage is offscreen.
-6. **Render and eyeball.** Open the page, scroll it slowly and fast, check on a
-   narrow viewport. Watch for jank, layout shift, and scenes that overlap wrong.
+Ask, in plain prose (not fabricated multiple-choice for the open ones):
+- **Subject/brand** + one-line pitch, brand kit (4-6 hex, name, tone).
+- **Beats** — 3 to 6 ordered scenes, each with headline + role in the story.
+- **Fidelity + budget** — this picks the lane (Step 2). State the cost of the paid lane
+  before choosing it.
+- **Target framework** (Next.js/React assumed; the engine is framework-agnostic).
+
+## Step 2 — Route to a lane
+
+| Lane | Renderer | Cost | Use when | Engine |
+|---|---|---|---|---|
+| **1. SVG/CSS diorama** (default) | DOM layers, parallax | free | most heroes, editorial, isometric diorama | this skill's `assets/scroll-engine.js` |
+| **2. Three.js / Spline** | real-time 3D | free | true camera flythrough, depth, lighting | this skill's engine + a 3D layer |
+| **3. Rive** | vector state machine | free | interactive mascot/character, 2.5D | this skill's engine + Rive input |
+| **4. AI photoreal video** | pre-rendered seamless flythrough | **PAID (per clip)** | client wants photoreal, no manual assets, accepts cost | **delegate to `scroll-world`** |
+
+Default to lane 1. Escalate only on explicit need. Only reach lane 4 when the user
+wants AI-generated photoreal video AND accepts per-clip spend.
+
+## Step 3 — Build the chosen lane
+
+**Lanes 1-3 (free, code):** wire `assets/scroll-engine.js` (Lenis + GSAP ScrollTrigger).
+It pins the stage, builds one scrubbed timeline across the beats, and emits `progress`
+(0..1) per scene that the visual layer reads. Layer specifics + code:
+`references/visual-layers.md`. Next.js/React integration (hook, SSR, cleanup):
+`references/react-nextjs.md`.
+
+**Lane 4 (paid, photoreal video):** do NOT reimplement the render pipeline. Invoke the
+**`scroll-world`** skill — it interviews for art direction/camera, generates the scene
+stills, the dive-in clips, and the frame-locked connector clips (Higgsfield stills +
+Monid/Seedance video, or Higgsfield-credits fallback), and ships its own vanilla scrub
+engine that plays the chain as one flight. This skill's role in lane 4 is only to route
+there and, if the page also needs code-driven sections, to run them on the same page
+alongside scroll-world's video hero. scroll-world owns the seams, the cost gate, and the
+video engine; trust it, don't fork it.
+
+## Step 4 — Performance & accessibility (all lanes, non-negotiable)
+
+- Honor `prefers-reduced-motion`: no smooth-scroll, no scrub; show scenes static.
+- Headlines are real DOM text (SEO + screen readers), never baked into image/video only.
+- Lazy-load heavy layers (Three/Spline/video) below the fold; never block first paint.
+- 3D: cap devicePixelRatio, pause the loop when the stage is offscreen.
+- Video (lane 4): scroll-world already hardens phones (seek-coalescing, iOS priming); keep it.
+
+## Step 5 — Render and eyeball
+
+Open the page; scroll slow and fast; check a narrow viewport. Watch for jank, layout
+shift, wrong scene overlap, and (lane 4) any seam "pop".
 
 ## Non-negotiables
 
-- **Free by default.** Do not reach for the paid video layer unless the user asks
-  for photoreal and accepts per-clip cost.
-- **One engine, swappable visuals.** Never couple scroll logic to a specific
-  renderer; the layer only consumes `progress`.
-- **Reduced-motion is a real branch**, not an afterthought.
-- **Text is DOM text.** Cinematics decorate; they never replace readable content.
+- **Free by default.** Lane 4's per-clip cost is opt-in, stated before spend.
+- **One engine, swappable visuals** for the code lanes; the renderer only consumes `progress`.
+- **Delegate, don't duplicate.** Photoreal video = the `scroll-world` skill. This skill
+  never re-creates the Higgsfield/Monid pipeline.
+- **Reduced-motion is a real branch.** **Text is DOM text.**
 
 ## Files
 
 | File | What it holds |
 |---|---|
-| `assets/scroll-engine.js` | The Lenis + GSAP ScrollTrigger engine (vanilla + React exports) |
-| `references/visual-layers.md` | The four layers, when to use each, how to plug into `progress` |
-| `references/react-nextjs.md` | `useScrollCinema` hook, Next.js App Router integration, SSR/cleanup |
+| `assets/scroll-engine.js` | Lenis + GSAP ScrollTrigger engine for lanes 1-3 (vanilla + React) |
+| `references/visual-layers.md` | The code lanes (SVG/Three/Rive) + how the video lane delegates |
+| `references/react-nextjs.md` | `useScrollCinema` hook, Next.js App Router, SSR/cleanup |

@@ -57,14 +57,22 @@ Drive a Rive state-machine input from progress:
 onProgress(index, p) { riceInput.value = p * 100 } // a 0..100 "scrub" number input
 ```
 
-## Pre-rendered video (paid, photoreal) — last resort
+## AI photoreal video (lane 4, paid) — delegate to `scroll-world`
 
-This is the "scroll-world" approach. Only if the user wants photoreal AND accepts
-per-clip render cost. Scrub `video.currentTime` by progress:
+For an AI-generated, seamless "fly through the world" photoreal hero, do NOT build the
+pipeline here. Invoke the **`scroll-world`** skill: it generates the scene stills, the
+dive-in clips, and the frame-locked connector clips (Higgsfield/Monid, Seedance 2.0,
+pay-per-clip), and ships its own vanilla scrub engine that plays the chain as one flight
+with no seams. It owns the seam laws, the cost gate, and phone hardening. This skill only
+routes there; if the same page also needs code-driven sections, run them with the engine
+above alongside scroll-world's video hero.
+
+If you ALREADY have a video (supplied by the user, not generated), you can scrub it with
+this engine instead of pulling in scroll-world:
 ```js
 onProgress(_, __, { globalProgress }) {
   if (video.readyState >= 2) video.currentTime = globalProgress * video.duration
 }
 ```
-Encode the video for seeking (frequent keyframes, e.g. `-g 6`), serve a poster, and
-still render the headlines as real DOM text on top.
+Encode for seeking (frequent keyframes, e.g. `-g 6`), serve a poster, and keep the
+headlines as real DOM text on top. For anything AI-generated, prefer scroll-world.

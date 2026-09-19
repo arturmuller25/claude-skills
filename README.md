@@ -7,7 +7,7 @@ compatible agents). Markdown skill modules that load on demand.
 
 | Skill | What it does |
 |---|---|
-| **scroll-cinema** | Scroll-scrubbed cinematic / "fly through the world" landing hero. Free by default: Lenis + GSAP ScrollTrigger engine with a pluggable visual layer (SVG/CSS diorama, Three.js/Spline 3D, Rive, or optional paid video). Optimized for Next.js/React. |
+| **scroll-cinema** | Universal scroll-driven cinematic hero. Routes to the best technique for the job and budget: free Lenis + GSAP engine with SVG/CSS diorama, Three.js/Spline 3D, or Rive; for AI photoreal "fly-through" video it delegates to the `scroll-world` skill instead of reimplementing its Higgsfield/Monid pipeline. Optimized for Next.js/React. |
 | **qa-agent** | Two-stage website QA: exploratory testing with Claude in Chrome, then materialized into durable Playwright specs for regression. Localhost/staging only. |
 
 ## Install
