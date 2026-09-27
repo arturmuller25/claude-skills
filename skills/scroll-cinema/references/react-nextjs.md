@@ -4,37 +4,131 @@ The engine touches the DOM and `window`, so it runs client-side only.
 
 ## Install
 ```
-npm i lenis gsap
+npm i lenis gsap @gsap/react
 ```
+
+## One Lenis, in the root layout
+
+A page runs one Lenis, created once in the root layout. Scroll-cinema sections reuse it
+(`lenis: 'external'`) instead of creating their own; two instances fight over the scroll
+position. The provider follows the GSAP integration in the `lenis/react` README: GSAP's
+ticker drives Lenis, so pins and smooth scroll share one clock.
+
+```tsx
+// app/smooth-scroll.tsx
+'use client'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { ReactLenis, useLenis, type LenisRef } from 'lenis/react'
+
+gsap.registerPlugin(ScrollTrigger)
+
+function ScrollTriggerSync() {
+  useLenis(ScrollTrigger.update) // every Lenis scroll updates ScrollTrigger
+  return null
+}
+
+export function SmoothScroll({ children }: { children: ReactNode }) {
+  const lenisRef = useRef<LenisRef>(null)
+  const [smooth, setSmooth] = useState(true)
+
+  useEffect(() => {
+    // the ref exposes { wrapper, content, lenis }; lenis is undefined until it mounts
+    const update = (time: number) => lenisRef.current?.lenis?.raf(time * 1000)
+    gsap.ticker.add(update)
+    gsap.ticker.lagSmoothing(0)
+
+    // reduced motion: keep Lenis (ScrollTrigger stays in sync) but stop smoothing the wheel
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const apply = () => setSmooth(!mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+
+    return () => {
+      gsap.ticker.remove(update)
+      mq.removeEventListener('change', apply)
+    }
+  }, [])
+
+  return (
+    <ReactLenis root options={{ autoRaf: false, smoothWheel: smooth }} ref={lenisRef}>
+      <ScrollTriggerSync />
+      {children}
+    </ReactLenis>
+  )
+}
+```
+
+```tsx
+// app/layout.tsx
+import type { ReactNode } from 'react'
+import { SmoothScroll } from './smooth-scroll'
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <SmoothScroll>{children}</SmoothScroll>
+      </body>
+    </html>
+  )
+}
+```
+
+`root` makes the instance global and scrolls the document itself (no wrapper div).
+Anywhere below it, `useLenis()` returns the instance (for `lenis.scrollTo`, for example).
 
 ## `useScrollCinema` hook
 ```tsx
 'use client'
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
+import gsap from 'gsap'
+import { useGSAP } from '@gsap/react'
 import { initScrollCinema } from './scroll-engine'
 
-export function useScrollCinema(scenes, onProgress) {
-  const containerRef = useRef(null)
-  const stageRef = useRef(null)
+gsap.registerPlugin(useGSAP)
 
-  useEffect(() => {
+type OnProgress = (
+  index: number,
+  sceneProgress: number,
+  info: { globalProgress: number; sceneProgress: number },
+) => void
+
+export function useScrollCinema(
+  scenes: unknown[],
+  onProgress: OnProgress,
+  options: { lenis?: 'own' | 'external' | 'none'; scrub?: number | boolean } = {},
+) {
+  const containerRef = useRef<HTMLElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
+
+  useGSAP(() => {
     const inst = initScrollCinema({
       container: containerRef.current,
       stage: stageRef.current,
       scenes,
       onProgress,
+      lenis: 'external', // SmoothScroll in the layout owns Lenis
+      ...options,
     })
-    return () => inst.destroy() // cleanup on unmount / route change
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    // useGSAP reverts the ScrollTrigger (and its pin spacer) with the rest of the
+    // context; destroy() covers what the context does not track
+    return () => inst.destroy()
+  }, { scope: containerRef })
 
   return { containerRef, stageRef }
 }
 ```
 
+`scenes` and `onProgress` are read once, at mount. If the beats can change, pass
+`{ dependencies: [beats], scope: containerRef, revertOnUpdate: true }` so the engine is
+torn down and rebuilt with them.
+
 ## Component
 ```tsx
 'use client'
-export function Hero({ beats }) {
+export function Hero({ beats }: { beats: { headline: string }[] }) {
   const { containerRef, stageRef } = useScrollCinema(beats, (index, p) => {
     // move DOM layers, or drive Three/Rive here
   })
@@ -56,10 +150,12 @@ export function Hero({ beats }) {
 - Mark the component `'use client'`. The engine never runs during SSR.
 - For a Three/Spline layer, `dynamic(() => import('./ThreeLayer'), { ssr: false })`
   so the heavy bundle is client-only and code-split.
-- `initScrollCinema` runs in `useEffect`, so it only fires in the browser; the hook
-  returns `destroy()` for cleanup — important with client-side navigation or GSAP
-  ScrollTrigger leaks across routes.
+- `useGSAP` runs only in the browser and cleans up on unmount and route change, which
+  matters with client-side navigation and React Strict Mode's double mount (ScrollTrigger
+  pins leak across routes otherwise).
+- Page without the layout provider (a standalone route or a plain React app): pass
+  `{ lenis: 'own' }` in `options` and the engine brings its own Lenis.
 - If content loads async (fonts, images), call the returned `refresh()` after it
   settles so ScrollTrigger recomputes positions.
-- Reduced motion is handled inside the engine; you get `sceneProgress = 1` for every
-  scene and can render them static.
+- Reduced motion is handled in two places: the engine gives `sceneProgress = 1` for
+  every scene (render them static) and the provider stops smoothing the wheel.

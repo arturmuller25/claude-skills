@@ -50,14 +50,38 @@ onProgress(index, p, { globalProgress }) {
 ```
 Load Three lazily (`dynamic import`) below the fold; never block first paint.
 
+### Device budget (Three.js and Spline)
+
+Starting envelopes, not a pass mark: profile on the real phone before calling it done.
+
+| | Phone | Desktop |
+|---|---|---|
+| Pixel ratio cap | 1.25 to 1.5 | 1.5 to 2 |
+| Visible triangles | 150k to 300k | 500k to 1.2M |
+| Draw calls | 50 to 90 | 90 to 160 |
+| Shadow-casting lights | 1 to 2 | 2 to 4 |
+| First-load transfer | 3 to 6 MB | 5 to 10 MB |
+| Frame time | 16.7 ms, 25 ms at worst | 16.7 ms |
+
+- Pick a quality tier from the device, then step down only after sustained misses (for
+  example, 120 frames over 22 ms). Cheapest lever first: pixel ratio, post-processing,
+  reflections, shadow updates, particles, and only then geometry detail. Never bounce
+  between tiers; go back up only after a reload.
+- Pause the render loop when the tab is hidden or the stage is offscreen. After a stall,
+  clamp the frame delta (about 1/30 s) so the camera does not jump.
+- Dispose geometries, materials, textures and render targets in `destroy()`.
+
+Numbers adapted from Meng To's `build-threejs-scroll-worlds` skill
+([mengto/skills](https://github.com/mengto/skills), MIT).
+
 ## Rive (interactive character)
 
 Drive a Rive state-machine input from progress:
 ```js
-onProgress(index, p) { riceInput.value = p * 100 } // a 0..100 "scrub" number input
+onProgress(index, p) { riveInput.value = p * 100 } // a 0..100 "scrub" number input
 ```
 
-## AI photoreal video (lane 4, paid) — delegate to `scroll-world`
+## AI photoreal video (lane 4, paid): delegate to `scroll-world`
 
 For an AI-generated, seamless "fly through the world" photoreal hero, do NOT build the
 pipeline here. Invoke the **`scroll-world`** skill: it generates the scene stills, the

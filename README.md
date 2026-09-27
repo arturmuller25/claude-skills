@@ -7,12 +7,12 @@ compatible agents). Markdown skill modules that load on demand.
 
 | Skill | What it does |
 |---|---|
-| **scroll-cinema** | Universal scroll-driven cinematic hero. Routes to the best technique for the job and budget: free Lenis + GSAP engine with SVG/CSS diorama, Three.js/Spline 3D, or Rive; for AI photoreal "fly-through" video it delegates to the `scroll-world` skill instead of reimplementing its Higgsfield/Monid pipeline. Optimized for Next.js/React. |
-| **qa-agent** | Two-stage website QA: exploratory testing with Claude in Chrome, then materialized into durable Playwright specs for regression. Localhost/staging only. |
+| **scroll-cinema** | Universal scroll-driven cinematic hero. Routes to the best technique for the job and budget: free Lenis + GSAP engine with SVG/CSS diorama, Three.js/Spline 3D, or Rive; for AI photoreal "fly-through" video it delegates to the `scroll-world` skill instead of reimplementing its Higgsfield/Monid pipeline. Optimized for Next.js/React: one Lenis in the root layout, `useGSAP` sections, device budget for 3D. |
+| **qa-agent** | Two-stage website QA: exploratory testing in an isolated browser with repro-first logs, then materialized into durable Playwright specs for regression. Localhost/staging only. |
 
 ## Install
 
-With the [skills CLI](https://skills.sh) (one skill per command — comma-separated
+With the [skills CLI](https://skills.sh) (one skill per command; comma-separated
 lists do not work):
 
 ```
