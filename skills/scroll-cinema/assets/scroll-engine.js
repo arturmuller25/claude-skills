@@ -2,7 +2,7 @@
 // Lenis (smooth scroll) + GSAP ScrollTrigger (pin + scrub). No renderer coupling:
 // it only emits progress; the visual layer decides what to draw.
 //
-// deps: npm i lenis gsap
+// deps: npm i lenis gsap, plus the stylesheet Lenis recommends: import 'lenis/dist/lenis.css'
 //
 // initScrollCinema({ container, stage, scenes, onProgress, lenis, scrub }) -> { refresh(), destroy() }
 //   container : the tall scroll section (its height sets total scroll distance)
@@ -19,9 +19,13 @@
 //                 e.g. the Next.js layout provider in references/react-nextjs.md.
 //                 The engine creates none and never destroys it.
 //               'none': native scroll.
-//   scrub     : seconds the scenes take to catch up with the scroll position (default 1.2).
-//               Lenis already smooths the scroll, so lower it (0.5 to 1) if scenes feel late.
-//               true locks them to the scrollbar with no catch-up.
+//   scrub     : seconds the scenes take to catch up with the scroll position (default 0.5).
+//               Measured in Chromium (5-scene section, 800px viewport), Lenis on:
+//                 true -> wheel flick settles in ~420 ms, but a PageDown or anchor jump
+//                         moves the scene ~3.3% of the section per frame (a visible jolt);
+//                 0.5  -> ~520 ms, scene trails the scroll by ~1.5%, key jumps ~2%/frame;
+//                 1.2  -> ~730 ms, trails by ~2.8%: feels late on top of Lenis.
+//               Without Lenis, true steps 2.5% per wheel notch; 0.5 smooths it to ~0.9%.
 //
 // Honors prefers-reduced-motion: no smooth scroll, no scrub, scenes shown static.
 
@@ -51,7 +55,7 @@ export function initScrollCinema({
   onProgress,
   reducedMotion,
   lenis: lenisMode = 'own',
-  scrub = 1.2,
+  scrub = 0.5,
 } = {}) {
   if (!container || !stage) {
     throw new Error('initScrollCinema: container and stage are required')
@@ -90,27 +94,39 @@ export function initScrollCinema({
     lenis = own
   }
 
-  const st = ScrollTrigger.create({
-    trigger: container,
-    start: 'top top',
-    // one viewport of scroll per scene feels natural; tune the multiplier to taste
-    end: () => '+=' + window.innerHeight * total,
-    pin: stage,
-    scrub,
-    invalidateOnRefresh: true,
-    onUpdate: (self) => {
-      const globalProgress = self.progress // 0..1
-      const raw = globalProgress * total
-      const index = Math.min(total - 1, Math.floor(raw))
-      const sceneProgress = raw - index
-      onProgress?.(index, sceneProgress, { globalProgress, sceneProgress })
+  // scrub only smooths an animation linked to the trigger; ScrollTrigger's own
+  // progress is always the raw scroll position. So the engine scrubs a linear
+  // proxy tween and reports the proxy, which is what the scrub value smooths.
+  const proxy = { progress: 0 }
+  const emit = () => {
+    const globalProgress = proxy.progress // 0..1
+    const raw = globalProgress * total
+    const index = Math.min(total - 1, Math.floor(raw))
+    const sceneProgress = raw - index
+    onProgress?.(index, sceneProgress, { globalProgress, sceneProgress })
+  }
+
+  const tween = gsap.to(proxy, {
+    progress: 1,
+    ease: 'none',
+    onUpdate: emit,
+    scrollTrigger: {
+      trigger: container,
+      start: 'top top',
+      // one viewport of scroll per scene feels natural; tune the multiplier to taste
+      end: () => '+=' + window.innerHeight * total,
+      pin: stage,
+      scrub,
+      invalidateOnRefresh: true,
     },
   })
+  emit() // paint the starting state before the first scroll
 
   return {
     refresh: () => ScrollTrigger.refresh(),
     destroy() {
-      st.kill()
+      tween.scrollTrigger?.kill()
+      tween.kill()
       if (raf) gsap.ticker.remove(raf)
       lenis?.destroy() // only ever the instance this engine created
     },

@@ -17,10 +17,11 @@ ticker drives Lenis, so pins and smooth scroll share one clock.
 ```tsx
 // app/smooth-scroll.tsx
 'use client'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { ReactLenis, useLenis, type LenisRef } from 'lenis/react'
+import 'lenis/dist/lenis.css'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -31,28 +32,19 @@ function ScrollTriggerSync() {
 
 export function SmoothScroll({ children }: { children: ReactNode }) {
   const lenisRef = useRef<LenisRef>(null)
-  const [smooth, setSmooth] = useState(true)
 
   useEffect(() => {
     // the ref exposes { wrapper, content, lenis }; lenis is undefined until it mounts
     const update = (time: number) => lenisRef.current?.lenis?.raf(time * 1000)
     gsap.ticker.add(update)
     gsap.ticker.lagSmoothing(0)
-
-    // reduced motion: keep Lenis (ScrollTrigger stays in sync) but stop smoothing the wheel
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const apply = () => setSmooth(!mq.matches)
-    apply()
-    mq.addEventListener('change', apply)
-
-    return () => {
-      gsap.ticker.remove(update)
-      mq.removeEventListener('change', apply)
-    }
+    return () => gsap.ticker.remove(update)
   }, [])
 
+  // Lenis 1.3 honors prefers-reduced-motion by itself (`respectReducedMotion`, on by
+  // default): smoothing off, scroll tracks the input 1:1, ScrollTrigger stays in sync
   return (
-    <ReactLenis root options={{ autoRaf: false, smoothWheel: smooth }} ref={lenisRef}>
+    <ReactLenis root options={{ autoRaf: false }} ref={lenisRef}>
       <ScrollTriggerSync />
       {children}
     </ReactLenis>
@@ -158,4 +150,5 @@ export function Hero({ beats }: { beats: { headline: string }[] }) {
 - If content loads async (fonts, images), call the returned `refresh()` after it
   settles so ScrollTrigger recomputes positions.
 - Reduced motion is handled in two places: the engine gives `sceneProgress = 1` for
-  every scene (render them static) and the provider stops smoothing the wheel.
+  every scene (render them static), and Lenis itself turns smoothing off
+  (`respectReducedMotion`, default `true` in 1.3).

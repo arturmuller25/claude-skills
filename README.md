@@ -8,7 +8,7 @@ compatible agents). Markdown skill modules that load on demand.
 | Skill | What it does |
 |---|---|
 | **scroll-cinema** | Universal scroll-driven cinematic hero. Routes to the best technique for the job and budget: free Lenis + GSAP engine with SVG/CSS diorama, Three.js/Spline 3D, or Rive; for AI photoreal "fly-through" video it delegates to the `scroll-world` skill instead of reimplementing its Higgsfield/Monid pipeline. Optimized for Next.js/React: one Lenis in the root layout, `useGSAP` sections, device budget for 3D. |
-| **qa-agent** | Two-stage website QA: exploratory testing in an isolated browser with repro-first logs, then materialized into durable Playwright specs for regression. Localhost/staging only. |
+| **qa-agent** | Two-stage website QA: exploratory testing in an isolated browser with a numbered repro log (`scripts/qa_log.py`, screenshot per step, load errors kept apart from action errors), then materialized into durable Playwright specs for regression. Localhost/staging only. |
 
 ## Install
 

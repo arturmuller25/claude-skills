@@ -1,6 +1,6 @@
 ---
 name: qa-agent
-description: Run agent-driven QA on a website. Exploratory testing in an isolated browser, then materialized into durable Playwright specs for regression. Use when the user wants to "test my site", QA a feature, find UI/flow bugs, catch regressions before shipping, or set up automated end-to-end tests. Generates a test plan from the diff, drives a real browser to execute it, then writes versioned Playwright specs so the checks repeat in CI. Localhost/staging only.
+description: Run agent-driven QA on a website. Exploratory testing in an isolated browser with a numbered, replayable log, then materialized into durable Playwright specs for regression. Use when the user wants to "test my site", QA a feature, find UI/flow bugs, catch regressions before shipping, or set up automated end-to-end tests. Generates a test plan from the diff, drives a real browser to execute it, then writes versioned Playwright specs so the checks repeat in CI. Localhost/staging only.
 ---
 
 # QA Agent
@@ -14,18 +14,32 @@ explore with the browser agent, then freeze what matters into Playwright.
 1. **Build a test plan from the change.** Read the diff (or the feature description).
    Produce a markdown plan: per user-flow, the steps, the expected result, and the
    edge cases (empty state, error, slow network, narrow viewport, keyboard-only).
-2. **Pick the browser.** Default to one with no personal session: a fresh Playwright
-   browser context, or a dedicated Chrome profile with no logins and no saved
-   passwords. Claude in Chrome on your everyday profile only when the area under test
-   needs your real login and you asked for it explicitly; the agent then reaches
-   everything that profile can.
+2. **Pick the browser.** Default to one with no personal session:
+   - **Python Playwright scripts** (the `webapp-testing` skill from Anthropic's
+     example-skills plugin, or plain scripts): a fresh browser context on every run.
+     Needs `pip install playwright` and `playwright install chromium`.
+   - **A Playwright MCP server**, if one is configured: same isolation, driven step by
+     step by the agent.
+   - **Claude in Chrome** from Claude Code (`claude --chrome`, or `/chrome` inside a
+     session; in the VS Code extension it is available whenever the Chrome extension
+     is installed). It shares the login state of the
+     browser where the extension is installed, so install it in a second browser or a
+     dedicated profile with no personal logins, and pick it with `/chrome` >
+     "Select browser" when more than one is connected.
+
+   Your everyday logged-in browser only when the area under test needs your real
+   login and you asked for it explicitly: the agent then reaches everything it can.
 3. **Drive the site, repro-first.** Open the running site (localhost/staging) and
    execute the plan step by step: click, type, submit, observe. Log every step:
-   - a numbered screenshot (`qa/run-<date>/step-03.png`, git-ignored);
-   - console errors split into **on load** and **after the action** (a load error is
-     not the step's fault);
-   - failed network requests (status and URL);
+   - a numbered screenshot (`qa/run-<date>/03-send-empty-form.png`, git-ignored);
+   - console errors and uncaught exceptions, split into **on load** and **after the
+     action** (a load error is not the step's fault);
+   - failed requests and responses with status >= 400;
    - expected vs actual.
+
+   With Python Playwright, `scripts/qa_log.py` does all of this: `log.step(name,
+   action)` per step, `log.finish()` writes `report.md`. A failing action (selector
+   not found, timeout) becomes a finding and the run goes on.
 
    Capture what breaks: wrong result, console error, layout shift, focus trap, broken
    back button.
@@ -67,8 +81,14 @@ npx playwright test        # regression suite
 
 ## Notes
 
-- If a logged-in area runs through Claude in Chrome and it is not connected to this
-  Claude Code session, hand the plan over as a markdown file (served at a debug route,
-  or pasted), have Chrome execute it, then bring the findings back for Stage 2.
+- **Windows and `with_server.py`** (the webapp-testing helper that starts your dev
+  server): it starts the server through the shell, so on Windows it stops only the
+  shell and the server keeps running on the port after printing "stopped". The
+  orphan's output pipe is closed, so on the next run it answers with empty responses
+  (`net::ERR_EMPTY_RESPONSE`), and a new server can end up sharing the port with it.
+  Seen with Python's `http.server`. Start the dev server yourself and stop the whole
+  process tree (`taskkill /T /F /PID <pid>`), or check the port before each run
+  (`Get-NetTCPConnection -LocalPort <port>`).
+- Claude in Chrome pauses on login pages and CAPTCHAs and asks you to handle them.
 - Pairs with `playwright-best-practices` (Stage 2). Community skills also worth a look:
   `mattpocock/skills@qa` (planning), `alinaqi/maggy@playwright-testing` (spec generation).

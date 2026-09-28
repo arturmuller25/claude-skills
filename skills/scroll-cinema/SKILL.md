@@ -47,8 +47,11 @@ can use this engine as is:
 - **One Lenis per page.** Standalone page: the engine creates its own (`lenis: 'own'`,
   the default). Next.js: Lenis lives once in the root layout as a provider and every
   section passes `lenis: 'external'`. Never two smooth-scroll systems at once.
-- **Scrub 1.2 by default** (`scrub` option), not `scrub: true`.
+- **Scrub 0.5 by default** (`scrub` option). Measured in Chromium: pure `true` jolts the
+  scene on keyboard and anchor jumps, and above 1 the scene trails Lenis visibly. The
+  numbers are in the engine header.
 - **React uses `useGSAP`** from `@gsap/react` with a scope, not a bare `useEffect`.
+- **Load `lenis/dist/lenis.css`**, the stylesheet Lenis recommends.
 
 **Lane 4 (paid, photoreal video):** do NOT reimplement the render pipeline. Invoke the
 **`scroll-world`** skill: it interviews for art direction/camera, generates the scene
