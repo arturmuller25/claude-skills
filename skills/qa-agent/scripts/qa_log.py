@@ -57,22 +57,26 @@ class QaLog:
         self.steps: list[_Step] = []
         self._current: _Step | None = None
         page.on("console", self._on_console)
-        page.on("pageerror", lambda error: self._add("console", f"uncaught: {error}"))
-        page.on("requestfailed", lambda req: self._add(
-            "requests", f"{req.method} {req.url} failed: {req.failure or 'unknown'}"))
+        page.on("pageerror", lambda error: self._console_error(f"uncaught: {error}"))
+        page.on("requestfailed", lambda req: self._request_problem(
+            f"{req.method} {req.url} failed: {req.failure or 'unknown'}"))
         page.on("response", self._on_response)
 
-    def _add(self, kind: str, text: str) -> None:
+    def _console_error(self, text: str) -> None:
         if self._current is not None:
-            getattr(self._current, kind).append(text)
+            self._current.console.append(text)
+
+    def _request_problem(self, text: str) -> None:
+        if self._current is not None:
+            self._current.requests.append(text)
 
     def _on_console(self, message) -> None:
         if message.type == "error":
-            self._add("console", message.text)
+            self._console_error(message.text)
 
     def _on_response(self, response) -> None:
         if response.status >= 400:
-            self._add("requests", f"{response.status} {response.request.method} {response.url}")
+            self._request_problem(f"{response.status} {response.request.method} {response.url}")
 
     def step(self, name: str, action) -> _Step:
         step = _Step(number=len(self.steps) + 1, name=name)

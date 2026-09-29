@@ -14,6 +14,9 @@
 //               globalProgress= 0..1 across the whole timeline
 //   lenis     : who owns smooth scroll. A page runs ONE Lenis; two fight over the scroll.
 //               'own' (default): standalone page; the engine creates, wires and destroys it.
+//                 Every 'own' section on the page shares that one instance (the last
+//                 destroy() removes it), and if some other Lenis already drives the page
+//                 (<html class="lenis">) the engine uses it instead, with a console warning.
 //               'external': the page already runs a Lenis that feeds ScrollTrigger
 //                 (lenis.on('scroll', ScrollTrigger.update)) and is driven by gsap.ticker,
 //                 e.g. the Next.js layout provider in references/react-nextjs.md.
@@ -36,6 +39,35 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const LENIS_MODES = ['own', 'external', 'none']
+
+// The 'own' Lenis is shared by every section that asks for it, so two sections on one
+// page never start two instances. Counted, so the last section to go destroys it.
+/** @type {{ lenis: Lenis, raf: (time: number) => void, users: number } | null} */
+let shared = null
+
+function acquireOwnLenis() {
+  if (!shared) {
+    if (document.documentElement.classList.contains('lenis')) {
+      console.warn("initScrollCinema: a Lenis already drives this page; using it (pass lenis: 'external' to silence this)")
+      return false
+    }
+    const lenis = new Lenis({ smoothWheel: true, lerp: 0.1 })
+    lenis.on('scroll', ScrollTrigger.update)
+    const raf = (/** @type {number} */ time) => lenis.raf(time * 1000)
+    gsap.ticker.add(raf)
+    gsap.ticker.lagSmoothing(0)
+    shared = { lenis, raf, users: 0 }
+  }
+  shared.users++
+  return true
+}
+
+function releaseOwnLenis() {
+  if (!shared || --shared.users > 0) return
+  gsap.ticker.remove(shared.raf)
+  shared.lenis.destroy()
+  shared = null
+}
 
 /**
  * @param {{
@@ -81,18 +113,7 @@ export function initScrollCinema({
 
   // Only a standalone page gets its own Lenis. With 'external', whoever created the
   // instance already feeds ScrollTrigger and drives lenis.raf from gsap.ticker.
-  /** @type {Lenis | null} */
-  let lenis = null
-  /** @type {((time: number) => void) | null} */
-  let raf = null
-  if (lenisMode === 'own') {
-    const own = new Lenis({ smoothWheel: true, lerp: 0.1 })
-    own.on('scroll', ScrollTrigger.update)
-    raf = (time) => own.raf(time * 1000)
-    gsap.ticker.add(raf)
-    gsap.ticker.lagSmoothing(0)
-    lenis = own
-  }
+  const holdsOwnLenis = lenisMode === 'own' && acquireOwnLenis()
 
   // scrub only smooths an animation linked to the trigger; ScrollTrigger's own
   // progress is always the raw scroll position. So the engine scrubs a linear
@@ -122,13 +143,15 @@ export function initScrollCinema({
   })
   emit() // paint the starting state before the first scroll
 
+  let destroyed = false
   return {
     refresh: () => ScrollTrigger.refresh(),
     destroy() {
+      if (destroyed) return
+      destroyed = true
       tween.scrollTrigger?.kill()
       tween.kill()
-      if (raf) gsap.ticker.remove(raf)
-      lenis?.destroy() // only ever the instance this engine created
+      if (holdsOwnLenis) releaseOwnLenis() // never a Lenis this engine did not create
     },
   }
 }
