@@ -77,6 +77,11 @@ Open the page; scroll slow and fast; check a narrow viewport. Watch for jank, la
 shift, wrong scene overlap, and (lane 4) any seam "pop". For 3D, read the renderer
 stats (draw calls, triangles) on a phone against the budget.
 
+Judge it in a real browser (Chrome on the localhost URL, then a real phone), never in an
+app's built-in preview pane: those panes are known to stutter on scroll-scrubbed video
+(reported in the tiagopro.com.br/guia10k guide, 2026-10), so a scrub that looks broken
+there may be fine, and one that looks fine there proves nothing.
+
 ## Non-negotiables
 
 - **Free by default.** Lane 4's per-clip cost is opt-in, stated before spend.
